@@ -120,11 +120,12 @@ User Question:
 Answer:
 """
 
-    response = llm([HumanMessage(content=prompt)])
+    response = llm.invoke([HumanMessage(content=prompt)])
 
     # ----------------------------------
     # Final answer
     # ----------------------------------
     st.subheader("🧠 Market Insight")
     st.write(response.content)
+
 
