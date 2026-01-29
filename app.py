@@ -105,13 +105,26 @@ if query:
     context = context[:MAX_CONTEXT_CHARS]
 
     prompt = f"""
-You are an analyst helping students understand the job market.
+You are a Job Description analyst.
 
-Using ONLY the context below:
-- Identify relevant companies
-- Summarize the types of roles
-- Highlight common skills or requirements
-- Be concise and structured
+Using ONLY the information present in the context below, extract
+DETAILED role-level information.
+
+For EACH role you identify, clearly provide:
+
+1. Company Name
+2. Role Title
+3. Key Responsibilities (bullet points)
+4. Mandatory Skills / Requirements
+5. Preferred Skills (if mentioned)
+6. Experience Level (if mentioned)
+
+Rules:
+- Do NOT generalize
+- Do NOT add information not present in the context
+- If a field is not mentioned, explicitly say "Not specified"
+- Separate roles clearly
+- Be factual and structured
 
 Context:
 {context}
@@ -122,6 +135,7 @@ User Question:
 Answer:
 """
 
+
     response = llm.invoke([HumanMessage(content=prompt)])
 
     # ----------------------------------
@@ -129,6 +143,7 @@ Answer:
     # ----------------------------------
     st.subheader("🧠 Market Insight")
     st.write(response.content)
+
 
 
 
