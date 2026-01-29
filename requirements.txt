@@ -3,4 +3,5 @@ faiss-cpu
 sentence-transformers
 langchain
 langchain-groq
+langchain-core
 numpy
