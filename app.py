@@ -64,7 +64,7 @@ if query:
     # ----------------------------------
     query_embedding = embedding_model.encode([query]).astype("float32")
 
-    TOP_K = 15
+    TOP_K = 5
     distances, indices = index.search(query_embedding, TOP_K)
 
     # ----------------------------------
@@ -101,6 +101,8 @@ if query:
     # Prepare LLM prompt (Explorer Mode)
     # ----------------------------------
     context = "\n\n---\n\n".join(retrieved_chunks)
+    MAX_CONTEXT_CHARS = 6000
+    context = context[:MAX_CONTEXT_CHARS]
 
     prompt = f"""
 You are an analyst helping students understand the job market.
@@ -127,5 +129,6 @@ Answer:
     # ----------------------------------
     st.subheader("🧠 Market Insight")
     st.write(response.content)
+
 
 
