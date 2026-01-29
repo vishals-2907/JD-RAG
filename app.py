@@ -5,7 +5,7 @@ import numpy as np
 
 from sentence_transformers import SentenceTransformer
 from langchain_groq import ChatGroq
-from langchain.schema import HumanMessage
+from langchain_core.messages import HumanMessage
 
 # ----------------------------------
 # Streamlit config
@@ -127,3 +127,4 @@ Answer:
     # ----------------------------------
     st.subheader("🧠 Market Insight")
     st.write(response.content)
+
