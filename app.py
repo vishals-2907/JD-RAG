@@ -105,31 +105,32 @@ if query:
     context = context[:MAX_CONTEXT_CHARS]
 
     prompt = f"""
-You are a Job Description analyst.
+You are a placement mentor helping freshers understand campus job opportunities.
 
-Using ONLY the information present in the context below, extract
-DETAILED role-level information.
+Your audience:
+- Final-year students
+- Fresh graduates
+- Candidates new to placements
 
-For EACH role you identify, clearly provide:
+Using ONLY the information present in the context below, explain:
 
-1. Company Name
-2. Role Title
-3. Key Responsibilities (bullet points)
-4. Mandatory Skills / Requirements
-5. Preferred Skills (if mentioned)
-6. Experience Level (if mentioned)
+1. What TYPES of roles are being offered (group similar roles together)
+2. Which COMPANIES are offering these roles
+3. What these roles GENERALLY EXPECT from candidates
+4. Common SKILLS and KNOWLEDGE areas students should prepare for
+5. Any EXPERIENCE or background expectations mentioned (if any)
 
-Rules:
-- Do NOT generalize
-- Do NOT add information not present in the context
-- If a field is not mentioned, explicitly say "Not specified"
-- Separate roles clearly
-- Be factual and structured
+Guidelines:
+- Use simple, student-friendly language
+- Avoid HR jargon
+- Do NOT invent information
+- If something is not mentioned, say "Not clearly specified in the JDs"
+- Focus on helping students understand how to prepare
 
-Context:
+Context (extracted from multiple job descriptions):
 {context}
 
-User Question:
+Student Question:
 {query}
 
 Answer:
@@ -143,6 +144,7 @@ Answer:
     # ----------------------------------
     st.subheader("🧠 Market Insight")
     st.write(response.content)
+
 
 
 
