@@ -1,26 +1,29 @@
 import streamlit as st
-import faiss
 import json
+import faiss
 import numpy as np
-
 from sentence_transformers import SentenceTransformer
-from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage
 
-# ---------------------------------------------------
-# Streamlit config
-# ---------------------------------------------------
+from langchain_groq import ChatGroq
+from langchain_core.messages import HumanMessage, SystemMessage
+
+
+# -----------------------------
+# Page config
+# -----------------------------
 st.set_page_config(
-    page_title="JD Explorer – Campus Placement Intelligence",
+    page_title="Campus Placement JD Chatbot",
+    page_icon="🎓",
     layout="wide"
 )
 
-st.title("🎓 Campus Placement Explorer")
-st.caption("Understand what roles come to campus and how freshers should prepare")
+st.title("🎓 Campus Placement JD Chatbot")
+st.caption("Ask any question about the job descriptions uploaded by your placement team.")
 
-# ---------------------------------------------------
-# Load assets (cached)
-# ---------------------------------------------------
+
+# -----------------------------
+# Load models and data
+# -----------------------------
 @st.cache_resource
 def load_embedding_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
@@ -31,226 +34,147 @@ def load_faiss_index():
     return faiss.read_index("jd_faiss.index")
 
 
-@st.cache_resource
-def load_jd_data():
+@st.cache_data
+def load_jds():
     with open("jds.json", "r", encoding="utf-8") as f:
-        jd_texts = json.load(f)
-
-    with open("jd_metadata.json", "r", encoding="utf-8") as f:
-        metadata = json.load(f)
-
-    return jd_texts, metadata
+        return json.load(f)
 
 
-embedding_model = load_embedding_model()
+embedder = load_embedding_model()
 index = load_faiss_index()
-jd_texts, metadata = load_jd_data()
+jds_data = load_jds()
 
-# ---------------------------------------------------
+
+# -----------------------------
 # Groq LLM
-# ---------------------------------------------------
+# -----------------------------
 llm = ChatGroq(
-    api_key=st.secrets["GROQ_API_KEY"],
-    model_name="llama-3.1-8b-instant"
+    model="llama-3.1-8b-instant",
+    temperature=0.2,
+    max_tokens=1024
 )
 
-# ---------------------------------------------------
-# UI
-# ---------------------------------------------------
-query = st.text_input(
-    "Ask about companies, roles, or skills "
-    "(e.g. 'Which roles come for campus placements?', "
-    "'Do not include Accenture', "
-    "'Tell me about Deloitte')"
-)
 
-# ---------------------------------------------------
-# Role focus (interactivity)
-# ---------------------------------------------------
-st.subheader("🎯 Optional role focus")
+# -----------------------------
+# Helpers
+# -----------------------------
+def retrieve_context(query, k=6):
+    query_vec = embedder.encode([query]).astype("float32")
+    distances, indices = index.search(query_vec, k)
 
-role_focus = st.selectbox(
-    "Choose a role category to focus on",
-    [
-        "All roles",
-        "Analyst / Data",
-        "Product / Business",
-        "Consulting",
-        "Operations / Support",
-        "Technology"
-    ]
-)
-
-# ---------------------------------------------------
-# Query intent: include / exclude companies
-# ---------------------------------------------------
-if query:
-    query_lower = query.lower()
-
-    all_companies = list({
-        m.get("company", "").strip()
-        for m in metadata
-        if m.get("company")
-    })
-
-    include_companies = []
-    exclude_companies = []
-
-    for c in all_companies:
-        c_l = c.lower()
-
-        # include intent
-        if c_l in query_lower:
-            include_companies.append(c)
-
-        # exclude intent
-        if f"not include {c_l}" in query_lower or f"exclude {c_l}" in query_lower:
-            exclude_companies.append(c)
-
-    # also catch "without X"
-    for c in all_companies:
-        c_l = c.lower()
-        if f"without {c_l}" in query_lower:
-            exclude_companies.append(c)
-
-    # ---------------------------------------------------
-    # Embed query & search FAISS
-    # ---------------------------------------------------
-    query_embedding = embedding_model.encode([query]).astype("float32")
-
-    # retrieve wider set for better coverage
-    TOP_K = 30
-    distances, indices = index.search(query_embedding, TOP_K)
-
-    # ---------------------------------------------------
-    # Diversified collection
-    # ---------------------------------------------------
-    MAX_CHUNKS_PER_COMPANY = 2
-    MAX_CHUNKS_PER_SOURCE = 1
-
-    company_counter = {}
-    source_counter = {}
-
-    retrieved_chunks = []
-    company_role_map = {}
-
+    results = []
     for idx in indices[0]:
+        if idx < len(jds_data):
+            results.append(jds_data[idx])
 
-        meta = metadata[idx]
-        company = meta.get("company", "Unknown Company")
-        source = meta.get("source_file", "Unknown Source")
+    return results
 
-        # -------- include / exclude logic ----------
-        if include_companies and company not in include_companies:
-            continue
 
-        if company in exclude_companies:
-            continue
-        # -------------------------------------------
+def build_context_text(retrieved_chunks):
+    blocks = []
 
-        if company not in company_counter:
-            company_counter[company] = 0
-        if source not in source_counter:
-            source_counter[source] = 0
-
-        if company_counter[company] >= MAX_CHUNKS_PER_COMPANY:
-            continue
-
-        if source_counter[source] >= MAX_CHUNKS_PER_SOURCE:
-            continue
-
-        text = jd_texts[idx]["text"]
-
-        retrieved_chunks.append(
-            f"Company: {company}\nSource: {source}\n{text}"
-        )
-
-        company_counter[company] += 1
-        source_counter[source] += 1
-
-        if company not in company_role_map:
-            company_role_map[company] = set()
-        company_role_map[company].add(source)
-
-    # ---------------------------------------------------
-    # Feedback to user about filters
-    # ---------------------------------------------------
-    if include_companies:
-        st.info(f"Showing results only for: {', '.join(include_companies)}")
-
-    if exclude_companies:
-        st.info(f"Excluding: {', '.join(exclude_companies)}")
-
-    # ---------------------------------------------------
-    # Show companies found
-    # ---------------------------------------------------
-    st.subheader("🏢 Companies Found")
-
-    if not company_role_map:
-        st.warning("No matching companies found for your query.")
-        st.stop()
-
-    for company, sources in company_role_map.items():
-        st.write(f"**{company}**")
-        for src in sources:
-            st.write(f"- {src}")
-
-    # ---------------------------------------------------
-    # Build context (safety capped)
-    # ---------------------------------------------------
-    context = "\n\n---\n\n".join(retrieved_chunks)
-
-    MAX_CONTEXT_CHARS = 6000
-    context = context[:MAX_CONTEXT_CHARS]
-
-    # ---------------------------------------------------
-    # Student-centric mentor prompt
-    # ---------------------------------------------------
-    prompt = f"""
-You are a campus placement mentor helping freshers understand job opportunities.
-
-Your audience:
-- final year students
-- fresh graduates
-- candidates new to placements
-
-Use ONLY the information present in the context below.
-
-If a role focus is provided, prioritise and structure your answer mainly
-around that role category.
-
-Role focus selected by the student:
-{role_focus}
-
-Explain clearly and in simple language:
-
-1. What TYPES of roles are appearing in these campus placements
-2. Which COMPANIES are offering these roles
-3. What students are GENERALLY EXPECTED to know or be good at
-4. Typical responsibilities students will handle in their first year
-5. A practical 4-week preparation plan for a student
-
-Rules:
-- Do not invent information
-- Avoid HR jargon
-- Be realistic and helpful for freshers
-- Use bullet points
-- If something is not clearly present in the context, say
-  "Not clearly specified in the JDs"
-
-Context:
-{context}
-
-Student question:
-{query}
-
-Answer:
+    for c in retrieved_chunks:
+        block = f"""
+Company: {c.get("company","")}
+Source file: {c.get("source_file","")}
+JD text:
+{c.get("text","")}
 """
+        blocks.append(block.strip())
 
-    response = llm.invoke([HumanMessage(content=prompt)])
+    return "\n\n---\n\n".join(blocks)
 
-    # ---------------------------------------------------
-    # Final output
-    # ---------------------------------------------------
-    st.subheader("🧠 Placement Insight for Students")
-    st.write(response.content)
+
+# -----------------------------
+# Chat memory
+# -----------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+
+# -----------------------------
+# Display history
+# -----------------------------
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+
+# -----------------------------
+# Chat input
+# -----------------------------
+user_query = st.chat_input("Ask anything about the campus job descriptions…")
+
+
+if user_query:
+
+    st.session_state.messages.append(
+        {"role": "user", "content": user_query}
+    )
+
+    with st.chat_message("user"):
+        st.markdown(user_query)
+
+    # -----------------------------
+    # Retrieve relevant JDs
+    # -----------------------------
+    retrieved = retrieve_context(user_query, k=6)
+
+    context_text = build_context_text(retrieved)
+
+    system_prompt = f"""
+You are a placement assistant for MBA and undergraduate students.
+
+You must answer ONLY using the information present in the provided job descriptions.
+
+Your goal:
+Help students clearly understand:
+- what roles are being offered
+- what companies are hiring
+- what skills and expectations are mentioned
+- what kind of work freshers will actually do
+
+If the information is not present in the provided context, clearly say:
+"I could not find this information in the available job descriptions."
+
+Do NOT hallucinate.
+
+Use a student-friendly tone.
+
+Here are the job descriptions:
+
+{context_text}
+""".strip()
+
+    with st.chat_message("assistant"):
+        with st.spinner("Reading job descriptions..."):
+
+            response = llm.invoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_query)
+                ]
+            )
+
+            answer = response.content
+            st.markdown(answer)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer}
+    )
+
+
+# -----------------------------
+# Optional transparency section
+# -----------------------------
+with st.expander("🔎 Show retrieved JD sources used for this answer"):
+    if user_query:
+        for i, c in enumerate(retrieved, 1):
+            st.markdown(
+                f"""
+**{i}. {c.get("company","Unknown")}**  
+File: `{c.get("source_file","")}`
+"""
+            )
+    else:
+        st.write("Ask a question to see which job descriptions were used.")
