@@ -19,7 +19,7 @@ FAISS_PATH = "jd_faiss.index"
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Groq model (new working models – old llama3-8b is deprecated)
-GROQ_MODEL = "llama-3.1-70b-versatile"
+GROQ_MODEL = "llama3-8b-8192"
 
 
 # -------------------------
