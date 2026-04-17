@@ -23,13 +23,53 @@ GROQ_MODEL = "llama-3.1-8b-instant"
 
 
 # -------------------------
-# UI
+# UI Configuration & Styling
 # -------------------------
 
-st.set_page_config(page_title="Campus JD Chatbot", layout="wide")
+st.set_page_config(
+    page_title="Placement Intelligence | JD Copilot", 
+    page_icon="💼", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-st.title("🎓 Campus Placement JD Chatbot")
-st.caption("Ask any question based only on the uploaded job descriptions")
+# Custom CSS to inject a professional look, hide default Streamlit branding
+st.markdown("""
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Avatars for a polished chat interface
+USER_AVATAR = "👤"
+BOT_AVATAR = "🏢"
+
+# Sidebar layout for context and instructions
+with st.sidebar:
+    st.header("💼 JD Copilot")
+    st.markdown("---")
+    st.markdown(
+        "Welcome to the **Placement Intelligence System**. "
+        "This tool is designed to help you quickly navigate and extract "
+        "requirements from available job descriptions (JDs)."
+    )
+    st.markdown("### 💡 Example Queries")
+    st.markdown("- *What roles are available in Product Management?*")
+    st.markdown("- *What are the technical prerequisites for the FedEx role?*")
+    st.markdown("- *Which companies are hiring for Customer Success?*")
+    st.markdown("---")
+    st.caption("Powered by Vector Search & Llama 3.1")
+
+# Main Header
+st.title("Placement Intelligence Hub")
+st.markdown("Query the centralized job description database to find role specifics, company expectations, and skill requirements.")
+st.divider()
 
 
 # -------------------------
@@ -81,7 +121,8 @@ if "messages" not in st.session_state:
 # -------------------------
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    avatar = USER_AVATAR if msg["role"] == "user" else BOT_AVATAR
+    with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 
@@ -98,7 +139,7 @@ if query:
         {"role": "user", "content": query}
     )
 
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=USER_AVATAR):
         st.markdown(query)
 
     # -------------------------
@@ -138,7 +179,7 @@ Standalone Question:
         search_query = rephrase_response.content.strip()
         
         # Optional: Show the rewritten query in the UI so you know it worked
-        st.caption(f"*(Searched for: {search_query})*")
+        st.caption(f"*(System searched for: {search_query})*")
 
 
     # -------------------------
@@ -234,13 +275,13 @@ Student question:
     # Show answer
     # -------------------------
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=BOT_AVATAR):
         st.markdown(answer)
 
         if used_sources:
-            with st.expander("📄 Sources used"):
+            with st.expander("📄 View Source Documents"):
                 for s in sorted(used_sources):
-                    st.write(s)
+                    st.write(f"- {s}")
 
     st.session_state.messages.append(
         {"role": "assistant", "content": answer}
