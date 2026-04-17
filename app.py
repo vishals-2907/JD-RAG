@@ -26,31 +26,23 @@ GROQ_MODEL = "llama-3.1-8b-instant"
 # -------------------------
 
 st.set_page_config(
-    page_title="Placement Intelligence | JD Copilot", 
+    page_title="Placement Intelligence Hub", 
     page_icon="💼", 
-    layout="centered", 
-    initial_sidebar_state="expanded"
+    layout="centered"
 )
 
+# Lightweight CSS to hide Streamlit branding without breaking Dark/Light mode
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .block-container { padding-top: 3rem; padding-bottom: 2rem; }
-    .stApp { background-color: #F8FAFC; }
-    h1 { color: #0F172A; text-align: center; font-weight: 800; margin-bottom: -10px; }
-    .stMarkdown p { color: #475569; }
-    [data-testid="stSidebar"] { background-color: #0F172A; border-right: 1px solid #1E293B; }
-    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] li { color: #E2E8F0 !important; }
-    [data-testid="stSidebar"] hr { border-color: #334155; }
-    [data-testid="stChatInput"] { border-radius: 12px; border: 1px solid #CBD5E1; background-color: #FFFFFF; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 </style>
 """, unsafe_allow_html=True)
 
 USER_AVATAR = "👤"
-BOT_AVATAR = "🏢"
+BOT_AVATAR = "💼"
 
 
 # -------------------------
@@ -109,25 +101,30 @@ def extract_text_from_pdf(pdf_file):
 
 
 # -------------------------
-# Sidebar
+# App Header
 # -------------------------
 
-with st.sidebar:
-    st.markdown("## 💼 JD Copilot")
-    st.markdown("---")
-    st.markdown("Welcome to the **Placement Intelligence System**.")
-    st.markdown("<br>", unsafe_allow_html=True)
+st.title("💼 Placement Intelligence Hub")
+st.markdown("Explore available job descriptions, ask questions about specific companies, or upload your resume to discover your best matches.")
+st.write("") # Small spacing
+
+
+# -------------------------
+# Feature 1: CV Matcher (Moved to Main Page)
+# -------------------------
+
+with st.expander("🎯 **Upload your CV to find matching roles**", expanded=False):
+    st.info("Our AI will analyze your skills and experience to find the top 5 most aligned roles in our database.")
     
-    # --- NEW FEATURE: CV MATCHING ---
-    st.markdown("### 🎯 Resume Matcher")
-    uploaded_cv = st.file_uploader("Upload your CV to find aligned roles", type=["pdf"])
+    uploaded_cv = st.file_uploader("Select your resume (PDF format)", type=["pdf"])
     
     if uploaded_cv is not None:
-        if st.button("Find Top 5 Matches"):
-            with st.spinner("Analyzing CV Profile..."):
+        # Use a bold, primary button 
+        if st.button("Analyze & Find Matches", type="primary", use_container_width=True):
+            with st.spinner("Analyzing CV Profile and searching database..."):
                 cv_text = extract_text_from_pdf(uploaded_cv)
                 
-                # 1. Use LLM to compress the CV into a dense search string (bypasses embedding limits)
+                # Compress CV into search string
                 extraction_prompt = f"""
                 You are an expert HR recruiter. Analyze the following CV text and extract the candidate's core profile.
                 Return ONLY a dense, comma-separated paragraph containing their key skills, total experience, target roles, and domain knowledge. Do not include introductory text.
@@ -138,17 +135,17 @@ with st.sidebar:
                 
                 compressed_profile = llm.invoke([HumanMessage(content=extraction_prompt)]).content
                 
-                # 2. Embed the compressed profile
+                # Embed the profile
                 cv_emb = embedder.encode(
                     [compressed_profile], 
                     convert_to_numpy=True, 
                     normalize_embeddings=True
                 )
                 
-                # 3. Search FAISS for Top 5
+                # Search FAISS
                 scores, indices = index.search(cv_emb, 5)
                 
-                # 4. Format the output as an assistant message
+                # Format response
                 match_response = "### 🎯 Top 5 Roles Aligned With Your CV\n\nI analyzed your resume and found these roles in our database that best match your skills and experience:\n\n"
                 
                 for rank, idx in enumerate(indices[0]):
@@ -159,22 +156,16 @@ with st.sidebar:
                 
                 match_response += "---\n*Feel free to ask me specific questions about any of these roles!*"
                 
-                # Inject directly into the chat
+                # Inject directly into chat and refresh
                 st.session_state.messages.append({"role": "assistant", "content": match_response})
                 st.rerun()
-                
-    st.markdown("---")
-    st.caption("Powered by Vector Search & Llama 3.1")
+
+st.divider()
 
 
 # -------------------------
-# Main Chat UI
+# Feature 2: Chat Interface
 # -------------------------
-
-st.title("Placement Intelligence Hub")
-st.markdown("<p style='text-align: center;'>Query the centralized job description database or upload your CV to find matches.</p>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-
 
 # Display history
 for msg in st.session_state.messages:
@@ -220,7 +211,6 @@ Standalone Question:
         
         search_query = rephrase_response.content.strip()
         st.caption(f"*(System searched for: {search_query})*")
-
 
     q_emb = embedder.encode(
         [search_query], 
