@@ -29,19 +29,67 @@ GROQ_MODEL = "llama-3.1-8b-instant"
 st.set_page_config(
     page_title="Placement Intelligence | JD Copilot", 
     page_icon="💼", 
-    layout="wide",
+    layout="centered", # <--- Changed from 'wide' to fix the empty spaces
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS to inject a professional look, hide default Streamlit branding
+# Custom CSS for a professional, branded SaaS look
 st.markdown("""
 <style>
+    /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+
+    /* Top padding adjustment */
     .block-container {
-        padding-top: 2rem;
+        padding-top: 3rem;
         padding-bottom: 2rem;
+    }
+
+    /* Soft background for the main chat area */
+    .stApp {
+        background-color: #F8FAFC; 
+    }
+
+    /* Main Title Styling */
+    h1 {
+        color: #0F172A;
+        text-align: center;
+        font-weight: 800;
+        margin-bottom: -10px;
+    }
+    
+    /* Subtitle / Caption Styling */
+    .stMarkdown p {
+        color: #475569;
+    }
+
+    /* Dark Premium Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0F172A;
+        border-right: 1px solid #1E293B;
+    }
+    
+    /* Force sidebar text to be light for contrast */
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] li {
+        color: #E2E8F0 !important;
+    }
+    
+    /* Sidebar Divider */
+    [data-testid="stSidebar"] hr {
+        border-color: #334155;
+    }
+
+    /* Chat Input Styling */
+    [data-testid="stChatInput"] {
+        border-radius: 12px;
+        border: 1px solid #CBD5E1;
+        background-color: #FFFFFF;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -52,13 +100,14 @@ BOT_AVATAR = "🏢"
 
 # Sidebar layout for context and instructions
 with st.sidebar:
-    st.header("💼 JD Copilot")
+    st.markdown("## 💼 JD Copilot")
     st.markdown("---")
     st.markdown(
         "Welcome to the **Placement Intelligence System**. "
         "This tool is designed to help you quickly navigate and extract "
         "requirements from available job descriptions (JDs)."
     )
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 💡 Example Queries")
     st.markdown("- *What roles are available in Product Management?*")
     st.markdown("- *What are the technical prerequisites for the FedEx role?*")
@@ -68,8 +117,8 @@ with st.sidebar:
 
 # Main Header
 st.title("Placement Intelligence Hub")
-st.markdown("Query the centralized job description database to find role specifics, company expectations, and skill requirements.")
-st.divider()
+st.markdown("<p style='text-align: center;'>Query the centralized job description database to find role specifics, company expectations, and skill requirements.</p>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # -------------------------
