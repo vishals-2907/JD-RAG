@@ -6,7 +6,7 @@ import numpy as np
 
 from sentence_transformers import SentenceTransformer
 from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 
 # -------------------------
@@ -172,15 +172,24 @@ Student question:
 
 
     # -------------------------
-    # LLM call
+    # LLM call with Memory
     # -------------------------
+    
+    # 1. Start with the system prompt
+    messages_to_pass = [SystemMessage(content=system_prompt)]
+    
+    # 2. Add the conversational history (excluding the current query which we just appended)
+    for msg in st.session_state.messages[:-1]:
+        if msg["role"] == "user":
+            messages_to_pass.append(HumanMessage(content=msg["content"]))
+        elif msg["role"] == "assistant":
+            messages_to_pass.append(AIMessage(content=msg["content"]))
+            
+    # 3. Add the current query, augmented with the RAG context
+    messages_to_pass.append(HumanMessage(content=final_prompt))
 
-    response = llm.invoke(
-        [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=final_prompt)
-        ]
-    )
+    # Invoke the LLM with the full message chain
+    response = llm.invoke(messages_to_pass)
 
     answer = response.content
 
