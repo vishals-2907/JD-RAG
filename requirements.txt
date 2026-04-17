@@ -5,3 +5,4 @@ langchain
 langchain-groq
 langchain-core
 numpy
+PyPDF2
