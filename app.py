@@ -93,6 +93,7 @@ query = st.chat_input("Ask anything about the available job descriptions...")
 
 if query:
 
+    # 1. Append user's original query to the visual chat history
     st.session_state.messages.append(
         {"role": "user", "content": query}
     )
@@ -101,11 +102,51 @@ if query:
         st.markdown(query)
 
     # -------------------------
-    # Retrieval
+    # Query Reformulation (Fixing the RAG Blindspot)
+    # -------------------------
+    
+    search_query = query # Default to the raw query
+    
+    # If there is conversational history (more than just the current prompt)
+    if len(st.session_state.messages) > 1:
+        
+        # Build a text block of the previous conversation
+        history_str = ""
+        for msg in st.session_state.messages[:-1]: 
+            role_label = "Student" if msg["role"] == "user" else "Assistant"
+            history_str += f"{role_label}: {msg['content']}\n"
+            
+        rephrase_prompt = f"""
+Given the following conversation history and the user's next question, rephrase the question to be a standalone question that can be understood without the chat history.
+If the question is already standalone or doesn't need context, just return the original question.
+Do NOT answer the question, just provide the standalone version.
+
+Conversation History:
+{history_str}
+
+User's Next Question:
+{query}
+
+Standalone Question:
+"""
+        # Call LLM just to rewrite the query
+        rephrase_response = llm.invoke([
+            SystemMessage(content="You are a query reformulation assistant. Return ONLY the rewritten question."),
+            HumanMessage(content=rephrase_prompt)
+        ])
+        
+        search_query = rephrase_response.content.strip()
+        
+        # Optional: Show the rewritten query in the UI so you know it worked
+        st.caption(f"*(Searched for: {search_query})*")
+
+
+    # -------------------------
+    # Retrieval (Using the Reformulated Query)
     # -------------------------
 
     q_emb = embedder.encode(
-        [query],
+        [search_query], # <--- Pass the STANDALONE query to FAISS here
         convert_to_numpy=True,
         normalize_embeddings=True
     )
@@ -172,25 +213,20 @@ Student question:
 
 
     # -------------------------
-    # LLM call with Memory
+    # Final LLM call with Memory
     # -------------------------
     
-    # 1. Start with the system prompt
     messages_to_pass = [SystemMessage(content=system_prompt)]
     
-    # 2. Add the conversational history (excluding the current query which we just appended)
     for msg in st.session_state.messages[:-1]:
         if msg["role"] == "user":
             messages_to_pass.append(HumanMessage(content=msg["content"]))
         elif msg["role"] == "assistant":
             messages_to_pass.append(AIMessage(content=msg["content"]))
             
-    # 3. Add the current query, augmented with the RAG context
     messages_to_pass.append(HumanMessage(content=final_prompt))
 
-    # Invoke the LLM with the full message chain
     response = llm.invoke(messages_to_pass)
-
     answer = response.content
 
 
